@@ -1,0 +1,4 @@
+[submodule "messages"]
+	path = messages
+	url = https://github.com/orwell-int/messages.git
+	branch = feature/package
