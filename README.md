@@ -36,6 +36,25 @@ start.bat
 
 This part is developed in TypeScript.
 
+Quick notes about development environment:
+-choco install nvm
+-nvm install latest
+-nvm use 12.11.1
+-choco install yarn
+
+Running the client:
+-cd client
+-yarn
+-yarn ng build --prod
+-yarn ng serve admin-app
+
+VSCode extensions:
+-eslint
+-prettier
+-material icon theme
+-debugger for Chrome
+-angular snippets
+
 ### Server
 
 This part is developed in Python (version 3).

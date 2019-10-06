@@ -1,1 +1,4 @@
 server/.venv
+
+.vscode/
+node_modules/

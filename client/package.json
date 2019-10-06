@@ -1,0 +1,12 @@
+{
+  "name": "orwell-admin-client",
+  "version": "1.0.0",
+  "description": "Web client for administrative interface of ORWELL project.",
+  "main": "index.js",
+  "repository": "https://github.com/orwell-int/admin-gui",
+  "author": "Michaël Ludmann",
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "@angular/cli": "^8.3.8"
+  }
+}
