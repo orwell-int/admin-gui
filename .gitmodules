@@ -1,4 +1,4 @@
-[submodule "messages"]
-	path = messages
+[submodule "server/messages"]
+	path = server/messages
 	url = https://github.com/orwell-int/messages.git
 	branch = feature/package

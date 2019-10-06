@@ -1,7 +1,14 @@
 from typing import Optional, Awaitable
 
+import tornado
 import tornado.ioloop
 import tornado.web
+
+from graphene_tornado.tornado_graphql_handler import TornadoGraphQLHandler
+
+import orwell.admin.model as model
+
+from orwell.admin.model import schema
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -12,8 +19,16 @@ class MainHandler(tornado.web.RequestHandler):
         self.write("Orwell administration interface")
 
 
+class Application(tornado.web.Application):
+    def __init__(self, handlers):
+        handlers += [
+            (r'/graphql', TornadoGraphQLHandler, dict(graphiql=True, schema=schema)),
+        ]
+        tornado.web.Application.__init__(self, handlers)
+
+
 def make_app():
-    return tornado.web.Application([
+    return Application([
         (r"/", MainHandler),
     ])
 
@@ -23,6 +38,10 @@ def main():
     app = make_app()
     app.listen(web_port)
     print("Webserver will be available on port", web_port)
+    server = model.Server()
+    server.name = "GameServer"
+    server.up = False
+    #print(schema.introspect().items())
     tornado.ioloop.IOLoop.current().start()
 
 
