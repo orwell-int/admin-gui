@@ -8,7 +8,14 @@ from graphene_tornado.tornado_graphql_handler import TornadoGraphQLHandler
 
 import orwell.admin.model as model
 
+import datetime
+
 from orwell.admin.model import schema
+
+
+import logging
+import sys
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 
 class MainHandler(tornado.web.RequestHandler):
@@ -33,6 +40,11 @@ def make_app():
     ])
 
 
+def timeout_function():
+    model.server.up = not model.server.up
+    tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(seconds=5), timeout_function)
+
+
 def main():
     web_port = 8888
     app = make_app()
@@ -42,6 +54,7 @@ def main():
     server.name = "GameServer"
     server.up = False
     #print(schema.introspect().items())
+    tornado.ioloop.IOLoop.instance().add_timeout(datetime.timedelta(seconds=5), timeout_function)
     tornado.ioloop.IOLoop.current().start()
 
 
