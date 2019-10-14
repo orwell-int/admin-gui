@@ -2,3 +2,6 @@
 	path = server/messages
 	url = https://github.com/orwell-int/messages.git
 	branch = feature/package
+[submodule "server/python-common"]
+	path = server/python-common
+	url = https://github.com/orwell-int/python-common.git
