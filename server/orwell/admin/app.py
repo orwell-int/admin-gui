@@ -3,6 +3,7 @@ import json
 from aiohttp import web
 from orwell.admin.schema import schema
 from orwell.admin.schema import increase_age
+from orwell.admin.schema import update_server
 from graphql import format_error
 from graphql_ws.aiohttp import AiohttpSubscriptionServer
 import asyncio
@@ -38,9 +39,12 @@ async def subscriptions(request):
 
 async def counter(app):
     try:
+        up = False
         while True:
-            await asyncio.sleep(1.)
+            await asyncio.sleep(5)
+            up = not up
             increase_age(1)
+            update_server(up)
     except asyncio.CancelledError:
         pass
 
