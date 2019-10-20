@@ -5,3 +5,5 @@ rem cd ..
 cd server
 call build.bat
 cd ..
+
+pause

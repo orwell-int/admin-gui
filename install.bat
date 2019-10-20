@@ -7,3 +7,5 @@ rem cd ..
 cd server
 call install.bat
 cd ..
+
+pause
