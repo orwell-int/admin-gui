@@ -1,2 +1,4 @@
 .venv
 orwell/messages/
+*.egg-info
+__pycache__
