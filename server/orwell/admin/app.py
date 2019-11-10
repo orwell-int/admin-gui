@@ -4,8 +4,7 @@ import sys
 from aiohttp import web
 from orwell.admin.schema import schema
 from orwell.admin.schema import increase_age
-from orwell.admin.schema import update_server
-from orwell.admin.schema import is_server_up
+from orwell.admin.schema import server_proxy as server
 from graphql import format_error
 from graphql_ws.aiohttp import AiohttpSubscriptionServer
 import asyncio
@@ -46,7 +45,6 @@ async def counter(app):
             await asyncio.sleep(5)
             up = not up
             increase_age(1)
-            #update_server(up)
     except asyncio.CancelledError:
         pass
 
@@ -63,11 +61,12 @@ async def broadcast_server_game(app):
     try:
         broadcast = AsyncBroadcast(ServerGameDecoder())
         while True:
-            if not is_server_up():
+            if not server.up:
                 await broadcast.async_send_all_broadcast_messages()
                 if broadcast.decoder.success:
                     print("Server found")
-                    update_server(True)
+                    server.up = True
+                    server.address = broadcast.remote_address
                     await zmq_queue.put(broadcast.decoder.agent_address)
             await asyncio.sleep(2.1)
     except asyncio.CancelledError:
@@ -79,7 +78,7 @@ async def get_server_info(app):
         zmq_req_socket = None
         while True:
             idle = True
-            if is_server_up():
+            if server.up:
                 try:
                     try:
                         agent_address = zmq_queue.get_nowait()
@@ -101,12 +100,12 @@ async def get_server_info(app):
                 except zmq.ZMQError as zex:
                     print("ZMQ error: ", zex, file=sys.stderr)
                     print("Server lost")
-                    update_server(False)
+                    server.up = False
                 except asyncio.TimeoutError as tex:
                     print("Timeout while trying to receive ZMQ response. ",
                           tex, file=sys.stderr)
                     print("Server lost")
-                    update_server(False)
+                    server.up = False
             if idle:
                 await asyncio.sleep(2.2)
     except asyncio.CancelledError:

@@ -6,6 +6,42 @@ import graphene
 class Server(graphene.ObjectType):
     name = graphene.String()
     up = graphene.Boolean()
+    address = graphene.String()
+
+
+class ServerProxy(object):
+    def __init__(self, server):
+        self._server = server
+
+    @property
+    def name(self):
+        return self._server.name
+
+    @name.setter
+    def name(self, value):
+        if self._server.name != value:
+            self._server.name = value
+            server_queue.put_nowait("update")
+
+    @property
+    def up(self):
+        return self._server.up
+
+    @up.setter
+    def up(self, value):
+        if self._server.up != value:
+            self._server.up = value
+            server_queue.put_nowait("update")
+
+    @property
+    def address(self):
+        return self._server.address
+
+    @address.setter
+    def address(self, value):
+        if self._server.address != value:
+            self._server.address = value
+            server_queue.put_nowait("update")
 
 
 class Query(graphene.ObjectType):
@@ -35,16 +71,6 @@ computed_age = 0
 def increase_age(amount):
     global computed_age
     computed_age += amount
-
-
-def update_server(up):
-    if server.up != up:
-        server.up = up
-        server_queue.put_nowait("update")
-
-
-def is_server_up():
-    return server.up
 
 
 class Subscription(graphene.ObjectType):
@@ -79,6 +105,8 @@ class Subscription(graphene.ObjectType):
 
 schema = graphene.Schema(query=Query, subscription=Subscription)
 
-server = Server(name="ServerGame", up=False)
+server = Server(name="ServerGame", up=False, address="")
+
+server_proxy = ServerProxy(server)
 
 server_queue = asyncio.Queue()
