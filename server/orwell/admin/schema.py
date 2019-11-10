@@ -43,6 +43,10 @@ def update_server(up):
         server_queue.put_nowait("update")
 
 
+def is_server_up():
+    return server.up
+
+
 class Subscription(graphene.ObjectType):
     count_seconds = graphene.Float(up_to=graphene.Int())
     random_int = graphene.Field(RandomType)
