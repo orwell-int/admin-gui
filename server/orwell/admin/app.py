@@ -66,6 +66,7 @@ async def broadcast_server_game(app):
             if not is_server_up():
                 await broadcast.async_send_all_broadcast_messages()
                 if broadcast.decoder.success:
+                    print("Server found")
                     update_server(True)
                     await zmq_queue.put(broadcast.decoder.agent_address)
             await asyncio.sleep(2.1)
@@ -94,10 +95,17 @@ async def get_server_info(app):
                         for item in ("robot", "player"):
                             print("zmq send 'list %s'" % item)
                             await zmq_req_socket.send_string("list %s" % item)
-                            response = await zmq_req_socket.recv_unicode()
+                            response = await asyncio.wait_for(
+                                zmq_req_socket.recv_unicode(), 1)
                             print("zmq received: ", response)
                 except zmq.ZMQError as zex:
-                    print(zex, file=sys.stderr)
+                    print("ZMQ error: ", zex, file=sys.stderr)
+                    print("Server lost")
+                    update_server(False)
+                except asyncio.TimeoutError as tex:
+                    print("Timeout while trying to receive ZMQ response. ",
+                          tex, file=sys.stderr)
+                    print("Server lost")
                     update_server(False)
             if idle:
                 await asyncio.sleep(2.2)
