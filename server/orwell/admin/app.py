@@ -12,6 +12,7 @@ from graphql_ws.aiohttp import AiohttpSubscriptionServer
 from orwell_common.broadcast import AsyncBroadcast
 from orwell_common.broadcast import ServerGameDecoder
 from orwell_common.broadcast import ProxyRobotsDecoder
+import orwell_common.broadcast
 
 from orwell.admin.schema import schema
 from orwell.admin.schema import increase_age
@@ -199,6 +200,7 @@ async def stop_callbacks(app):
 print("Route /subscriptions")
 print("Route /graphiql")
 print("Route /graphql")
+orwell_common.broadcast.configure_logging(False)
 app = web.Application()
 app.router.add_get('/subscriptions', subscriptions)
 app.router.add_get('/graphiql', graphiql_view)
