@@ -2,6 +2,8 @@ import random
 import asyncio
 import graphene
 
+import collections
+
 
 class Server(graphene.ObjectType):
     name = graphene.String()
@@ -54,11 +56,138 @@ class ServerWrapper(object):
             self._queue.put_nowait("update")
 
 
-class Robot(graphene.ObjectType):
+class Arguments(object):
+    def __init__(
+            self,
+            cls,
+            interfaces=(),
+            possible_types=(),
+            default_resolver=None,
+            _meta=None,
+            **options
+    ):
+        self.stored_cls = cls
+        self.stored_interfaces = interfaces
+        self.stored_possible_types = possible_types
+        self.stored_default_resolver = default_resolver
+        self.stored_meta = _meta
+        self.stored_options = options
+
+
+global_arguments = {}
+
+
+class ObjectTypeDelayed(graphene.ObjectType):
+    """
+    Ugly way of simulating resolveThunk to avoid circular dependencies.
+
+    You need to implement as static method named get_delayed_fields to
+    return a dictionary with the additional fields needed.
+
+      @staticmethod
+      def get_delayed_fields():
+          return {}
+
+    You need to call call_delayed_init in the class to initialize everything.
+
+    WARNING:
+      This is highly experimental. It seems to work but there might be
+      unsuspected side effects of delaying the initialisation.
+    """
+    @classmethod
+    def __init_subclass_with_meta__(
+            cls,
+            interfaces=(),
+            possible_types=(),
+            default_resolver=None,
+            _meta=None,
+            **options
+    ):
+        arguments = Arguments(
+            cls,
+            interfaces,
+            possible_types,
+            default_resolver,
+            _meta,
+            **options)
+        global_arguments[cls.__name__] = arguments
+
+    # code copied from graphene/types/objecttype.py
+    @classmethod
+    def __init_subclass_with_meta_delayed__(
+            cls,
+            interfaces=(),
+            possible_types=(),
+            default_resolver=None,
+            _meta=None,
+            additional_fields=None,
+            **options
+    ):
+        print("__init_subclass_with_meta__(cls=" + str(cls)
+              + ", interfaces=" + str(interfaces)
+              + ", possible_types=" + str(possible_types)
+              + ",...)")
+        if not _meta:
+            _meta = graphene.types.objecttype.ObjectTypeOptions(cls)
+
+        fields = collections.OrderedDict()
+
+        for interface in interfaces:
+            assert issubclass(interface, graphene.Interface), (
+                'All interfaces of {} must be a subclass of Interface.'
+                ' Received "{}".'
+            ).format(cls.__name__, interface)
+            fields.update(interface._meta.fields)
+
+        for base in reversed(cls.__mro__):
+            fields.update(graphene.types.utils.yank_fields_from_attrs(
+                base.__dict__, _as=graphene.Field))
+
+        print("__init_subclass_with_meta__ ; "
+              "fields=[" + ", ".join([str(f) for f in fields]) + "]")
+        assert not (possible_types and cls.is_type_of), (
+            "{name}.Meta.possible_types will cause type collision with "
+            "{name}.is_type_of. Please use one or other."
+        ).format(name=cls.__name__)
+
+        if additional_fields:
+            fields.update(additional_fields)
+
+        if _meta.fields:
+            _meta.fields.update(fields)
+        else:
+            _meta.fields = fields
+
+        if not _meta.interfaces:
+            _meta.interfaces = interfaces
+        _meta.possible_types = possible_types
+        _meta.default_resolver = default_resolver
+
+        super(graphene.ObjectType, cls).__init_subclass_with_meta__(
+            _meta=_meta, **options)
+
+    @classmethod
+    def call_delayed_init(cls):
+        args = global_arguments[cls.__name__]
+        delayed_fields = cls.get_delayed_fields()
+        cls.__init_subclass_with_meta_delayed__(
+            args.stored_interfaces,
+            args.stored_possible_types,
+            args.stored_default_resolver,
+            args.stored_meta,
+            delayed_fields,
+            **args.stored_options)
+
+
+class Robot(ObjectTypeDelayed):
     name = graphene.String()
     registered = graphene.Boolean()
     video_url = graphene.String()
-    player = graphene.String()
+    # (Robot <--> Player)
+
+    @staticmethod
+    def get_delayed_fields():
+        return {"player": graphene.Field(Player)}
 
 
 class RobotWrapper(object):
@@ -114,9 +243,19 @@ class RobotWrapper(object):
 
     @player.setter
     def player(self, value):
-        if self._robot.player != value:
-            self._robot.player = value
+        player = None
+        if isinstance(value, str):
+            if value in players:
+                player = players[value]
+        elif isinstance(value, Player):
+            player = value
+        if player:
+            if self._robot.player != player:
+                self._robot.player = player
+                player.robot = self.name
             self._queue.put_nowait("update:" + self.name)
+        else:
+            print(" !! invalid player", player)
 
     def get(self):
         return self._robot
@@ -124,7 +263,10 @@ class RobotWrapper(object):
 
 class Player(graphene.ObjectType):
     name = graphene.String()
-    robot = graphene.String()
+    robot = graphene.Field(Robot)
+
+
+Robot.call_delayed_init()
 
 
 class PlayerWrapper(object):
@@ -155,9 +297,19 @@ class PlayerWrapper(object):
 
     @robot.setter
     def robot(self, value):
-        if self._player.robot != value:
-            self._player.robot = value
+        robot = None
+        if isinstance(value, str):
+            if value in robots:
+                robot = robots[value]
+        elif isinstance(value, Player):
+            robot = value
+        if robot:
+            if self._player.robot != robot:
+                self._player.robot = robot
+                robot.player = self.name
             self._queue.put_nowait("update:" + self.name)
+        else:
+            print(" !! invalid robot", robot)
 
     def get(self):
         return self._player
@@ -299,7 +451,8 @@ class Items(object):
         self._queue.put_nowait("update:" + item.name)
 
     def __getitem__(self, name):
-        return self._items[name]
+        item = self._items[name]
+        return item
 
     def __len__(self):
         return len(self._item)
@@ -370,6 +523,7 @@ class Query(graphene.ObjectType):
     def resolve_robot(root, info, name):
         print("resolve_robot(" + str(info) + ")")
         if name in robots:
+            # returning the wrapper or the raw object seem to work
             return robots[name]
         else:
             return None
@@ -377,6 +531,7 @@ class Query(graphene.ObjectType):
     def resolve_player(root, info, name):
         print("resolve_player(" + str(info) + ")")
         if name in players:
+            # returning the wrapper or the raw object seem to work
             return players[name]
         else:
             return None
@@ -384,6 +539,7 @@ class Query(graphene.ObjectType):
     def resolve_team(root, info, name):
         print("resolve_team(" + str(info) + ")")
         if name in teams:
+            # returning the wrapper or the raw object seem to work
             return teams[name]
         else:
             return None
