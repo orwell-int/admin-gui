@@ -18,6 +18,12 @@ from orwell.admin.schema import schema
 from orwell.admin.schema import increase_age
 from orwell.admin.schema import server_game_wrapper as server_game
 from orwell.admin.schema import proxy_robots_wrapper as proxy_robots
+from orwell.admin.schema import Robot
+from orwell.admin.schema import Player
+from orwell.admin.schema import Team
+from orwell.admin.schema import robots
+from orwell.admin.schema import players
+from orwell.admin.schema import teams
 from orwell.admin.template import render_graphiql
 
 
@@ -96,6 +102,41 @@ async def broadcast_proxy_robots(app):
         pass
 
 
+def decode_robots(json_message):
+    for json_robot in json_message["Robots"]:
+        robot = Robot()
+        robot.name = json_robot["name"]
+        robot.registered = json_robot["registered"]
+        robot.video_url = json_robot["video_url"]
+        robot.player = json_robot["player"]
+        robots.add(robot)
+
+
+def decode_players(json_message):
+    for json_player in json_message["Players"]:
+        player = Player()
+        player.name = json_player["name"]
+        player.robot = json_player["robot"]
+        players.add(player)
+
+
+def decode_teams(json_message):
+    for team_name in json_message["Teams"]:
+        team = Team()
+        team.name = team_name
+        teams.add(team)
+
+
+def decode_team(json_message, team):
+    json_team = json_message["Team"]
+    if team.name != json_team["name"]:
+        print("Wrong team name (" + json_team["name"]
+              + ") expected " + team.name)
+        return
+    team.score = json_team["score"]
+    team.robots = json_team["robots"]
+
+
 async def get_server_game_info(app):
     try:
         zmq_req_socket = None
@@ -114,20 +155,44 @@ async def get_server_game_info(app):
                     except asyncio.QueueEmpty as ex:
                         print(ex, file=sys.stderr)
                     if zmq_req_socket:
-                        for item in ("robot", "player"):
-                            print("ServerGame zmq send 'list %s'" % item)
-                            await zmq_req_socket.send_string("list %s" % item)
+                        for item in ("robot", "player", "team"):
+                            print("ServerGame zmq send 'json list %s'" % item)
+                            await zmq_req_socket.send_string("json list %s" % item)
                             response = await asyncio.wait_for(
                                 zmq_req_socket.recv_unicode(), 1)
                             print("ServerGame zmq received: ", response)
+                            json_response = json.loads(response)
+                            if "robot" == item:
+                                decode_robots(json_response)
+                            elif "player" == item:
+                                decode_players(json_response)
+                            elif "team" == item:
+                                decode_teams(json_response)
+                        for team_name in teams.keys():
+                            team = teams[team_name]
+                            print("team_name =", team_name, "; team =", team)
+                            command = "json view team " + team_name
+                            print("ServerGame zmq send '" + command + "'")
+                            await zmq_req_socket.send_string(command)
+                            response = await asyncio.wait_for(
+                                zmq_req_socket.recv_unicode(), 1)
+                            print("zmq response: " + response)
+                            json_response = json.loads(response)
+                            decode_team(json_response, team)
                 except zmq.ZMQError as zex:
                     print("ServerGame ZMQ error: ", zex, file=sys.stderr)
                     server_game.up = False
+                    robots.clear()
+                    players.clear()
+                    teams.clear()
                 except asyncio.TimeoutError as tex:
                     print("ServerGame Timeout while trying "
                           "to receive ZMQ response. ",
                           tex, file=sys.stderr)
                     server_game.up = False
+                    robots.clear()
+                    players.clear()
+                    teams.clear()
             if idle:
                 await asyncio.sleep(2.2)
     except asyncio.CancelledError:
