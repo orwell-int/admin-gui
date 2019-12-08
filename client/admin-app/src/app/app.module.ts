@@ -6,6 +6,7 @@ import { ServerGameComponent } from './server-game.component';
 
 // Apollo
 import { GraphQLModule } from './graphql.module';
+import { ProxyRobotsComponent } from './proxy-robots.component';
 
 @NgModule({
   imports: [
@@ -16,6 +17,7 @@ import { GraphQLModule } from './graphql.module';
   declarations: [
     AppComponent,
     ServerGameComponent,
+    ProxyRobotsComponent,
   ],
   bootstrap:    [ AppComponent ]
 })

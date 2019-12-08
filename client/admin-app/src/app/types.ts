@@ -1,5 +1,11 @@
 export type ServerGame = {
-    server: {    
+    serverGame: {    
+        name: string;
+        up: boolean}
+}
+
+export type ProxyRobots = {
+    proxyRobots: {    
         name: string;
         up: boolean}
 }

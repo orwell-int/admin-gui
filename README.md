@@ -43,10 +43,10 @@ Quick notes about development environment:
 -choco install yarn
 
 Running the client:
--cd client
+-cd client/admin-app
 -yarn
 -yarn ng build --prod
--yarn ng serve admin-app
+-yarn start
 
 VSCode extensions:
 -eslint

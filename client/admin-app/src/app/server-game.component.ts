@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { Apollo, SubscriptionResult } from 'apollo-angular';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
 
 import gql from 'graphql-tag';
 import {Subscription} from 'apollo-angular';
@@ -11,7 +10,15 @@ import { ServerGame } from './types';
 @Component({
   selector: 'app-server-game',
   template: `
-    <h1>Server-Game {{name}} is {{up}}</h1>
+  <div class="card" style="width: 300px;">
+  <div class="card-divider">
+  Server-Game
+  </div>
+  <div class="card-section">
+    <h4>{{name}} is </h4>
+    <p>{{up}}</p>
+  </div>
+    </div>
   `
 })
 export class ServerGameComponent implements OnInit {
@@ -21,15 +28,15 @@ export class ServerGameComponent implements OnInit {
   serverGameSubscription: Observable<SubscriptionResult<ServerGame>>;
 
   constructor(private apollo: Apollo) {
-    var serverSubscription = new ServerSubscription(apollo);
+    var serverSubscription = new ServerGameSubscription(apollo);
     this.serverGameSubscription = serverSubscription.subscribe();
     this.serverGameSubscription.subscribe(
       (result => {
         if (result.data)
         {
-          console.log("data received ; name = " + result.data.server.name + ", up = " + result.data.server.up.toString());
-          this.name = result.data.server.name;
-          this.up = result.data.server.up;
+          console.log("data received ; name = " + result.data.serverGame.name + ", up = " + result.data.serverGame.up.toString());
+          this.name = result.data.serverGame.name;
+          this.up = result.data.serverGame.up;
         }
       })
     );
@@ -40,7 +47,7 @@ export class ServerGameComponent implements OnInit {
     this.apollo.watchQuery<ServerGame>({
       query: gql`
       {
-          server {
+          serverGame {
             name,
             up
       }
@@ -50,17 +57,17 @@ export class ServerGameComponent implements OnInit {
       .valueChanges
       .subscribe(
         (result => {
-            this.name = result.data.server.name;
-            this.up = result.data.server.up;})
+            this.name = result.data.serverGame.name;
+            this.up = result.data.serverGame.up;})
       );
   }
 }
 
-export class ServerSubscription extends Subscription<ServerGame> {
+export class ServerGameSubscription extends Subscription<ServerGame> {
   document = gql`
-    subscription server
+    subscription serverGame
     {
-      server
+      serverGame
       {
         name,
         up
