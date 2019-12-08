@@ -103,21 +103,25 @@ async def broadcast_proxy_robots(app):
 
 
 def decode_robots(json_message):
+    mappings = {}
     for json_robot in json_message["Robots"]:
         robot = Robot()
         robot.name = json_robot["name"]
         robot.registered = json_robot["registered"]
         robot.video_url = json_robot["video_url"]
-        robot.player = json_robot["player"]
         robots.add(robot)
+        mappings[robot.name] = json_robot["player"]
+    return mappings
 
 
 def decode_players(json_message):
+    mappings = {}
     for json_player in json_message["Players"]:
         player = Player()
         player.name = json_player["name"]
-        player.robot = json_player["robot"]
         players.add(player)
+        mappings[player.name] = json_player["robot"]
+    return mappings
 
 
 def decode_teams(json_message):
@@ -155,6 +159,8 @@ async def get_server_game_info(app):
                     except asyncio.QueueEmpty as ex:
                         print(ex, file=sys.stderr)
                     if zmq_req_socket:
+                        robot_to_player = {}
+                        player_to_robot = {}
                         for item in ("robot", "player", "team"):
                             print("ServerGame zmq send 'json list %s'" % item)
                             await zmq_req_socket.send_string("json list %s" % item)
@@ -163,11 +169,18 @@ async def get_server_game_info(app):
                             print("ServerGame zmq received: ", response)
                             json_response = json.loads(response)
                             if "robot" == item:
-                                decode_robots(json_response)
+                                robot_to_player.update(decode_robots(json_response))
                             elif "player" == item:
-                                decode_players(json_response)
+                                player_to_robot.update(decode_players(json_response))
                             elif "team" == item:
                                 decode_teams(json_response)
+                        for player, robot in player_to_robot.items():
+                            if player != robot_to_player[robot]:
+                                print("Corrupted links!", robot, player)
+                                print("robot_to_player =", robot_to_player)
+                                print("player_to_robot =", player_to_robot)
+                                continue
+                            robots[robot].player = player
                         for team_name in teams.keys():
                             team = teams[team_name]
                             print("team_name =", team_name, "; team =", team)
