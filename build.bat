@@ -1,6 +1,6 @@
-rem cd client
-rem call build.bat
-rem cd ..
+cd client
+call build.bat
+cd ..
 
 cd server
 call build.bat
