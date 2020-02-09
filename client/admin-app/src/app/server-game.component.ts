@@ -6,17 +6,18 @@ import gql from "graphql-tag";
 import { Subscription } from "apollo-angular";
 
 import { ServerGame } from "./types";
+import { Utils } from "./utils";
 
 @Component({
   selector: "app-server-game",
   template: `
     <div class="card" style="width: 300px;">
       <div class="card-divider">
-        Server-Game
+        {{ name }}
       </div>
       <div class="card-section">
-        <h4>{{ name }} is</h4>
-        <p>{{ up }}</p>
+        <h4>{{ status }}</h4>
+        <p>{{ address }}</p>
       </div>
     </div>
   `
@@ -24,7 +25,8 @@ import { ServerGame } from "./types";
 export class ServerGameComponent implements OnInit {
   serverGame: Observable<ServerGame>;
   name: string;
-  up: boolean;
+  status: string;
+  address: string;
   serverGameSubscription: Observable<SubscriptionResult<ServerGame>>;
 
   constructor(private apollo: Apollo) {
@@ -39,7 +41,8 @@ export class ServerGameComponent implements OnInit {
             result.data.serverGame.up.toString()
         );
         this.name = result.data.serverGame.name;
-        this.up = result.data.serverGame.up;
+        this.status = Utils.updateStatus(result.data.serverGame.up);
+        this.address = result.data.serverGame.address;
       }
     });
   }
@@ -53,13 +56,15 @@ export class ServerGameComponent implements OnInit {
             serverGame {
               name
               up
+              address
             }
           }
         `
       })
       .valueChanges.subscribe(result => {
         this.name = result.data.serverGame.name;
-        this.up = result.data.serverGame.up;
+        this.status = Utils.updateStatus(result.data.serverGame.up);
+        this.address = result.data.serverGame.address;
       });
   }
 }
@@ -70,6 +75,7 @@ export class ServerGameSubscription extends Subscription<ServerGame> {
       serverGame {
         name
         up
+        address
       }
     }
   `;

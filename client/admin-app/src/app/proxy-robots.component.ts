@@ -6,17 +6,18 @@ import gql from "graphql-tag";
 import { Subscription } from "apollo-angular";
 
 import { ProxyRobots } from "./types";
+import { Utils } from "./utils";
 
 @Component({
   selector: "app-proxy-robots",
   template: `
     <div class="card" style="width: 300px;">
       <div class="card-divider">
-        Proxy-Robots
+        {{ name }}
       </div>
       <div class="card-section">
-        <h4>{{ name }} is</h4>
-        <p>{{ up }}</p>
+        <h4>{{ status }}</h4>
+        <p>{{ address }}</p>
       </div>
     </div>
   `
@@ -24,7 +25,8 @@ import { ProxyRobots } from "./types";
 export class ProxyRobotsComponent implements OnInit {
   serverGame: Observable<ProxyRobots>;
   name: string;
-  up: boolean;
+  status: string;
+  address: string;
   proxyRobotsSubscription: Observable<SubscriptionResult<ProxyRobots>>;
 
   constructor(private apollo: Apollo) {
@@ -39,7 +41,8 @@ export class ProxyRobotsComponent implements OnInit {
             result.data.proxyRobots.up.toString()
         );
         this.name = result.data.proxyRobots.name;
-        this.up = result.data.proxyRobots.up;
+        this.address = result.data.proxyRobots.address;
+        this.status = Utils.updateStatus(result.data.proxyRobots.up);
       }
     });
   }
@@ -53,13 +56,15 @@ export class ProxyRobotsComponent implements OnInit {
             proxyRobots {
               name
               up
+              address
             }
           }
         `
       })
       .valueChanges.subscribe(result => {
         this.name = result.data.proxyRobots.name;
-        this.up = result.data.proxyRobots.up;
+        this.address = result.data.proxyRobots.address;
+        this.status = Utils.updateStatus(result.data.proxyRobots.up);
       });
   }
 }
@@ -70,6 +75,7 @@ export class ProxyRobotsSubscription extends Subscription<ProxyRobots> {
       proxyRobots {
         name
         up
+        address
       }
     }
   `;
