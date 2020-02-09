@@ -1,23 +1,23 @@
-import { Component, OnInit } from '@angular/core';
-import { Apollo, SubscriptionResult } from 'apollo-angular';
-import { Observable } from 'rxjs';
+import { Component, OnInit } from "@angular/core";
+import { Apollo, SubscriptionResult } from "apollo-angular";
+import { Observable } from "rxjs";
 
-import gql from 'graphql-tag';
-import {Subscription} from 'apollo-angular';
+import gql from "graphql-tag";
+import { Subscription } from "apollo-angular";
 
-import { ProxyRobots } from './types';
+import { ProxyRobots } from "./types";
 
 @Component({
-  selector: 'app-proxy-robots',
+  selector: "app-proxy-robots",
   template: `
-  <div class="card" style="width: 300px;">
-  <div class="card-divider">
-  Proxy-Robots
-  </div>
-  <div class="card-section">
-    <h4>{{name}} is </h4>
-    <p>{{up}}</p>
-  </div>
+    <div class="card" style="width: 300px;">
+      <div class="card-divider">
+        Proxy-Robots
+      </div>
+      <div class="card-section">
+        <h4>{{ name }} is</h4>
+        <p>{{ up }}</p>
+      </div>
     </div>
   `
 })
@@ -30,46 +30,45 @@ export class ProxyRobotsComponent implements OnInit {
   constructor(private apollo: Apollo) {
     var proxyRobotsSubscription = new ProxyRobotsSubscription(apollo);
     this.proxyRobotsSubscription = proxyRobotsSubscription.subscribe();
-    this.proxyRobotsSubscription.subscribe(
-      (result => {
-        if (result.data)
-        {
-          console.log("data received ; name = " + result.data.proxyRobots.name + ", up = " + result.data.proxyRobots.up.toString());
-          this.name = result.data.proxyRobots.name;
-          this.up = result.data.proxyRobots.up;
-        }
-      })
-    );
+    this.proxyRobotsSubscription.subscribe(result => {
+      if (result.data) {
+        console.log(
+          "data received ; name = " +
+            result.data.proxyRobots.name +
+            ", up = " +
+            result.data.proxyRobots.up.toString()
+        );
+        this.name = result.data.proxyRobots.name;
+        this.up = result.data.proxyRobots.up;
+      }
+    });
   }
 
   ngOnInit() {
     console.log("Init");
-    this.apollo.watchQuery<ProxyRobots>({
-      query: gql`
-      {
-        proxyRobots {
-            name,
-            up
-      }
-    }
-      `,
-    })
-      .valueChanges
-      .subscribe(
-        (result => {
-            this.name = result.data.proxyRobots.name;
-            this.up = result.data.proxyRobots.up;})
-      );
+    this.apollo
+      .watchQuery<ProxyRobots>({
+        query: gql`
+          {
+            proxyRobots {
+              name
+              up
+            }
+          }
+        `
+      })
+      .valueChanges.subscribe(result => {
+        this.name = result.data.proxyRobots.name;
+        this.up = result.data.proxyRobots.up;
+      });
   }
 }
 
 export class ProxyRobotsSubscription extends Subscription<ProxyRobots> {
   document = gql`
-    subscription proxyRobots
-    {
-      proxyRobots
-      {
-        name,
+    subscription proxyRobots {
+      proxyRobots {
+        name
         up
       }
     }
