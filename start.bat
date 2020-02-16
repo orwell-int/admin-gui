@@ -1,5 +1,7 @@
 cd server
-start.bat
+call start.bat
 cd ..
 
-pause
+cd client
+call start.bat
+cd ..
