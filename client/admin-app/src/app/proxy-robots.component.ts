@@ -5,7 +5,7 @@ import { Observable } from "rxjs";
 import gql from "graphql-tag";
 import { Subscription } from "apollo-angular";
 
-import { ProxyRobots } from "./types";
+import { ProxyRobots, ConnectionStatus } from "./types";
 import { Utils } from "./utils";
 
 @Component({
@@ -41,8 +41,10 @@ export class ProxyRobotsComponent implements OnInit {
             result.data.proxyRobots.up.toString()
         );
         this.name = result.data.proxyRobots.name;
-        this.address = result.data.proxyRobots.address;
         this.status = Utils.updateStatus(result.data.proxyRobots.up);
+        this.status == ConnectionStatus.Offline
+          ? (this.address = "")
+          : (this.address = result.data.proxyRobots.address);
       }
     });
   }
@@ -63,8 +65,10 @@ export class ProxyRobotsComponent implements OnInit {
       })
       .valueChanges.subscribe(result => {
         this.name = result.data.proxyRobots.name;
-        this.address = result.data.proxyRobots.address;
         this.status = Utils.updateStatus(result.data.proxyRobots.up);
+        this.status == ConnectionStatus.Offline
+          ? (this.address = "")
+          : (this.address = result.data.proxyRobots.address);
       });
   }
 }

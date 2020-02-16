@@ -13,3 +13,8 @@ export type ProxyRobots = {
     address: string;
   };
 };
+
+export enum ConnectionStatus {
+  Online = "Online",
+  Offline = "Offline"
+}
