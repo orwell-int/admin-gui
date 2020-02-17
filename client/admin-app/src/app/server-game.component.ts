@@ -5,7 +5,7 @@ import { Observable } from "rxjs";
 import gql from "graphql-tag";
 import { Subscription } from "apollo-angular";
 
-import { ServerGame } from "./types";
+import { ServerGame, ConnectionStatus } from "./types";
 import { Utils } from "./utils";
 
 @Component({
@@ -42,7 +42,9 @@ export class ServerGameComponent implements OnInit {
         );
         this.name = result.data.serverGame.name;
         this.status = Utils.updateStatus(result.data.serverGame.up);
-        this.address = result.data.serverGame.address;
+        this.status == ConnectionStatus.Offline
+          ? (this.address = "")
+          : (this.address = result.data.serverGame.address);
       }
     });
   }
@@ -64,7 +66,9 @@ export class ServerGameComponent implements OnInit {
       .valueChanges.subscribe(result => {
         this.name = result.data.serverGame.name;
         this.status = Utils.updateStatus(result.data.serverGame.up);
-        this.address = result.data.serverGame.address;
+        this.status == ConnectionStatus.Offline
+          ? (this.address = "")
+          : (this.address = result.data.serverGame.address);
       });
   }
 }

@@ -1,9 +1,11 @@
+import { ConnectionStatus } from "./types";
+
 export class Utils {
   static updateStatus(isUp: boolean) {
-    if (isUp == true) {
-      return "Online";
+    if (isUp) {
+      return ConnectionStatus.Online;
     } else {
-      return "Offline";
+      return ConnectionStatus.Offline;
     }
   }
 }
