@@ -1,3 +1,3 @@
 cd admin-app
-yarn ng build --prod
+call yarn ng build --prod
 cd ..
