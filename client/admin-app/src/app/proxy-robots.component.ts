@@ -50,7 +50,7 @@ export class ProxyRobotsComponent implements OnInit {
   }
 
   ngOnInit() {
-    console.log("Init");
+    console.log("Init Proxy-Robots");
     this.apollo
       .watchQuery<ProxyRobots>({
         query: gql`

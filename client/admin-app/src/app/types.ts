@@ -14,6 +14,31 @@ export type ProxyRobots = {
   };
 };
 
+export type Game = {
+  game: {};
+};
+
+export type Robot = {
+  robot: {
+    name: string;
+    registered: boolean;
+    player: {
+      name: string;
+    };
+  };
+};
+
+export type SimpleTeams = [
+  {
+    name: string;
+    score: string;
+  }
+];
+
+export type Teams = {
+  teams: SimpleTeams;
+};
+
 export enum ConnectionStatus {
   Online = "Online",
   Offline = "Offline"

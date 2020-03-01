@@ -50,7 +50,7 @@ export class ServerGameComponent implements OnInit {
   }
 
   ngOnInit() {
-    console.log("Init");
+    console.log("Init Server-Game");
     this.apollo
       .watchQuery<ServerGame>({
         query: gql`
