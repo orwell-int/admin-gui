@@ -1,3 +1,4 @@
+import json
 import sys
 
 try:
@@ -7,9 +8,6 @@ except ImportError:
 
 if sys.platform == 'win32':
     set_event_loop_policy(WindowsSelectorEventLoopPolicy())
-
-
-import sys
 
 from aiohttp import web
 import asyncio
