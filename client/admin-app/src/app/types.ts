@@ -19,12 +19,10 @@ export type Game = {
 };
 
 export type Robot = {
-  robot: {
+  name: string;
+  registered: boolean;
+  player: {
     name: string;
-    registered: boolean;
-    player: {
-      name: string;
-    };
   };
 };
 
@@ -32,6 +30,7 @@ export type SimpleTeams = [
   {
     name: string;
     score: string;
+    robots: Robot[];
   }
 ];
 

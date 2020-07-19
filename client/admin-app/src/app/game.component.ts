@@ -5,7 +5,7 @@ import { Observable } from "rxjs";
 import gql from "graphql-tag";
 import { Subscription } from "apollo-angular";
 
-import { SimpleTeams, Teams } from "./types";
+import { SimpleTeams, Teams, Robot } from "./types";
 
 @Component({
   selector: "app-game",
@@ -22,9 +22,34 @@ import { SimpleTeams, Teams } from "./types";
           </div>
           <div class="card-section">
             <p>Score: {{ team.score }}</p>
-            <p>Player: {{ teamMember }}</p>
+            <p *ngFor="let robot of team.robots">Robot: {{ robot.name }}</p>
           </div>
         </div>
+      </div>
+      <div class="card-section">
+        <h4>Robots</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>Status</th>
+              <th>Robot</th>
+              <th>IP</th>
+              <th>Description</th>
+              <th>Player</th>
+              <th>Client IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let robot of robots">
+              <td></td>
+              <td>{{ robot.name }}</td>
+              <td></td>
+              <td></td>
+              <td></td>
+              <td></td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   `
@@ -32,6 +57,7 @@ import { SimpleTeams, Teams } from "./types";
 export class GameComponent implements OnInit {
   teams: SimpleTeams;
   teamsSubscription: Observable<SubscriptionResult<Teams>>;
+  robots: Robot[];
 
   constructor(private apollo: Apollo) {
     console.log("Constructor Game onInit");
@@ -43,7 +69,7 @@ export class GameComponent implements OnInit {
           this.teams = result.data.teams;
         }
       } else {
-        console.log("Team data is null (like the devs)");
+        console.log("Team or robot data is null (like the devs)");
       }
     });
   }
@@ -57,6 +83,9 @@ export class GameComponent implements OnInit {
             teams {
               name
               score
+              robots {
+                name
+              }
             }
           }
         `
@@ -65,6 +94,23 @@ export class GameComponent implements OnInit {
         if (result.data) {
           if (result.data.teams.length > 0) {
             this.teams = result.data.teams;
+          }
+        }
+      });
+    this.apollo
+      .watchQuery<Robot[]>({
+        query: gql`
+          {
+            robots {
+              name
+            }
+          }
+        `
+      })
+      .valueChanges.subscribe(result => {
+        if (result.data) {
+          if (result.data.length > 0) {
+            this.robots = result.data;
           }
         }
       });
@@ -77,6 +123,9 @@ export class TeamsSubscription extends Subscription<Teams> {
       teams {
         name
         score
+        robots {
+          name
+        }
       }
     }
   `;
