@@ -5,7 +5,14 @@ import { Observable } from "rxjs";
 import gql from "graphql-tag";
 import { Subscription } from "apollo-angular";
 
-import { SimpleTeams, Teams, Robot } from "./types";
+import {
+  SimpleTeams,
+  Teams,
+  RobotsQuery,
+  Robot,
+  GameQuery,
+  Game
+} from "./types";
 
 @Component({
   selector: "app-game",
@@ -15,7 +22,12 @@ import { SimpleTeams, Teams, Robot } from "./types";
         Game
       </div>
       <div class="card-section">
-        <h4>Time Left</h4>
+        <h4 *ngIf="game?.running; else notRunning">
+          Time Left: {{ game.time }}/{{ game.duration }}
+        </h4>
+        <ng-template #notRunning>
+          <h4>Game is not running</h4>
+        </ng-template>
         <div class="card" style="width: 300px;" *ngFor="let team of teams">
           <div class="card-divider">
             {{ team.name }}
@@ -45,7 +57,7 @@ import { SimpleTeams, Teams, Robot } from "./types";
               <td>{{ robot.name }}</td>
               <td></td>
               <td></td>
-              <td></td>
+              <td>{{ robot.player.name }}</td>
               <td></td>
             </tr>
           </tbody>
@@ -58,6 +70,9 @@ export class GameComponent implements OnInit {
   teams: SimpleTeams;
   teamsSubscription: Observable<SubscriptionResult<Teams>>;
   robots: Robot[];
+  game: Game;
+  gameSubscription: Observable<SubscriptionResult<GameQuery>>;
+  robotsSubscription: Observable<SubscriptionResult<RobotsQuery>>;
 
   constructor(private apollo: Apollo) {
     console.log("Constructor Game onInit");
@@ -70,6 +85,26 @@ export class GameComponent implements OnInit {
         }
       } else {
         console.log("Team or robot data is null (like the devs)");
+      }
+    });
+
+    var gameSubscription = new GameSubscription(apollo);
+    this.gameSubscription = gameSubscription.subscribe();
+    this.gameSubscription.subscribe(result => {
+      if (result.data) {
+        console.log("Game data is NOT null");
+
+        this.game = result.data.game;
+      } else {
+        console.log("Game data is null");
+      }
+    });
+
+    var robotsSubscription = new RobotsSubscription(apollo);
+    this.robotsSubscription = robotsSubscription.subscribe();
+    this.robotsSubscription.subscribe(result => {
+      if (result.data) {
+        this.robots = result.data.robots;
       }
     });
   }
@@ -97,20 +132,47 @@ export class GameComponent implements OnInit {
           }
         }
       });
+
+    console.log("Looking for Game info");
+
     this.apollo
-      .watchQuery<Robot[]>({
+      .watchQuery<GameQuery>({
         query: gql`
           {
-            robots {
-              name
+            game {
+              running
+              duration
+              time
             }
           }
         `
       })
       .valueChanges.subscribe(result => {
         if (result.data) {
-          if (result.data.length > 0) {
-            this.robots = result.data;
+          this.game = result.data.game;
+          console.log("Game data is NOT null");
+        } else {
+          console.log("Game data is null");
+        }
+      });
+
+    this.apollo
+      .watchQuery<RobotsQuery>({
+        query: gql`
+          {
+            robots {
+              name
+              player {
+                name
+              }
+            }
+          }
+        `
+      })
+      .valueChanges.subscribe(result => {
+        if (result.data) {
+          if (result.data) {
+            this.robots = result.data.robots;
           }
         }
       });
@@ -124,6 +186,31 @@ export class TeamsSubscription extends Subscription<Teams> {
         name
         score
         robots {
+          name
+        }
+      }
+    }
+  `;
+}
+
+export class GameSubscription extends Subscription<GameQuery> {
+  document = gql`
+    subscription game {
+      game {
+        running
+        duration
+        time
+      }
+    }
+  `;
+}
+
+export class RobotsSubscription extends Subscription<RobotsQuery> {
+  document = gql`
+    subscription robots {
+      robots {
+        name
+        player {
           name
         }
       }

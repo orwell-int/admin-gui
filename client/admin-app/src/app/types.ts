@@ -15,7 +15,13 @@ export type ProxyRobots = {
 };
 
 export type Game = {
-  game: {};
+  running: boolean;
+  duration: Int32Array;
+  time: Int32Array;
+};
+
+export type GameQuery = {
+  game: Game;
 };
 
 export type Robot = {
@@ -24,6 +30,10 @@ export type Robot = {
   player: {
     name: string;
   };
+};
+
+export type RobotsQuery = {
+  robots: Robot[];
 };
 
 export type SimpleTeams = [
