@@ -480,6 +480,58 @@ class Items(object):
 #        return iter(self._items)
 
 
+class Game(graphene.ObjectType):
+    time = graphene.Int()
+    running = graphene.Boolean()
+    duration = graphene.Int()
+
+
+class GameWrapper(object):
+    def __init__(self, game, queue=None):
+        self._game = game
+        if queue:
+            self._queue = queue
+        else:
+            self._queue = asyncio.Queue()
+
+    def get(self):
+        return self._game
+
+    @property
+    def queue(self):
+        return self._queue
+
+    @property
+    def time(self):
+        return self._game.time
+
+    @time.setter
+    def time(self, value):
+        if self._game.time != value:
+            self._game.time = value
+            self._queue.put_nowait("update:time")
+
+    @property
+    def running(self):
+        return self._game.running
+
+    @running.setter
+    def running(self, value):
+        if self._game.running != value:
+            self._game.running = value
+            self._queue.put_nowait("update:running")
+
+    @property
+    def duration(self):
+        return self._game.duration
+
+    @duration.setter
+    def duration(self, value):
+        if self._game.duration != value:
+            self._game.duration = value
+            self._queue.put_nowait("update:duration")
+
+
 class Query(graphene.ObjectType):
     server = graphene.Field(Server)
     server_game = graphene.Field(Server)
@@ -490,6 +542,7 @@ class Query(graphene.ObjectType):
     robot = graphene.Field(Robot, name=graphene.String(required=True))
     player = graphene.Field(Player, name=graphene.String(required=True))
     team = graphene.Field(Team, name=graphene.String(required=True))
+    game = graphene.Field(Game)
     thrower = graphene.String(required=True)
     test = graphene.String(who=graphene.String())
 
@@ -520,7 +573,7 @@ class Query(graphene.ObjectType):
         print("resolve_teams(" + str(info) + ")")
         return teams.values()
 
-    def resolve_robot(root, info, name):
+    def resolve_robot(self, info, name):
         print("resolve_robot(" + str(info) + ")")
         if name in robots:
             # returning the wrapper or the raw object seem to work
@@ -528,7 +581,7 @@ class Query(graphene.ObjectType):
         else:
             return None
 
-    def resolve_player(root, info, name):
+    def resolve_player(self, info, name):
         print("resolve_player(" + str(info) + ")")
         if name in players:
             # returning the wrapper or the raw object seem to work
@@ -536,13 +589,17 @@ class Query(graphene.ObjectType):
         else:
             return None
 
-    def resolve_team(root, info, name):
+    def resolve_team(self, info, name):
         print("resolve_team(" + str(info) + ")")
         if name in teams:
             # returning the wrapper or the raw object seem to work
             return teams[name]
         else:
             return None
+
+    def resolve_game(self, info):
+        print("resolve_game(" + str(info) + ")")
+        return global_game
 
     def resolve_test(self, info, who=None):
         return 'Hello %s' % (who or 'World')
@@ -573,43 +630,44 @@ class Subscription(graphene.ObjectType):
     robot = graphene.Field(Robot, name=graphene.String(required=True))
     player = graphene.Field(Player, name=graphene.String(required=True))
     team = graphene.Field(Team, name=graphene.String(required=True))
+    game = graphene.Field(Game)
 
-    async def resolve_count_seconds(root, info, up_to=5):
+    async def resolve_count_seconds(self, info, up_to=5):
         for i in range(up_to):
             print("YIELD SECOND", i)
             yield i
             await asyncio.sleep(1.)
         yield up_to
 
-    async def resolve_random_int(root, info):
+    async def resolve_random_int(self, info):
         i = 0
         while True:
             yield RandomType(seconds=i, random_int=random.randint(0, 500))
             await asyncio.sleep(1.)
             i += 1
 
-    async def resolve_age(root, info):
+    async def resolve_age(self, info):
         yield computed_age
 
-    async def resolve_server(root, info):
+    async def resolve_server(self, info):
         while True:
             message = await server_game_wrapper.queue.get()
             if message:
                 yield server_game
 
-    async def resolve_server_game(root, info):
+    async def resolve_server_game(self, info):
         while True:
             message = await server_game_wrapper.queue.get()
             if message:
                 yield server_game
 
-    async def resolve_proxy_robots(root, info):
+    async def resolve_proxy_robots(self, info):
         while True:
             message = await proxy_robots_wrapper.queue.get()
             if message:
                 yield proxy_robots
 
-    async def resolve_robots(root, info):
+    async def resolve_robots(self, info):
         print("Subscription::resolve_robots(" + str(info) + ")")
         while True:
             message = await robots.queue.get()
@@ -622,7 +680,7 @@ class Subscription(graphene.ObjectType):
                         print(" robots.values() =", robots.values())
                         yield robots.values()
 
-    async def resolve_players(root, info):
+    async def resolve_players(self, info):
         while True:
             message = await players.queue.get()
             if message:
@@ -631,7 +689,7 @@ class Subscription(graphene.ObjectType):
                     if command in ("add", "update", "delete"):
                         yield players.values()
 
-    async def resolve_teams(root, info):
+    async def resolve_teams(self, info):
         while True:
             message = await teams.queue.get()
             if message:
@@ -640,7 +698,7 @@ class Subscription(graphene.ObjectType):
                     if command in ("add", "update", "delete"):
                         yield teams.values()
 
-    async def resolve_robot(root, info, name):
+    async def resolve_robot(self, info, name):
         while True:
             message = await robots.queue.get()
             if message:
@@ -650,7 +708,7 @@ class Subscription(graphene.ObjectType):
                         if name == argument:
                             yield robots[name].get()
 
-    async def resolve_player(root, info, name):
+    async def resolve_player(self, info, name):
         while True:
             message = await players.queue.get()
             if message:
@@ -660,7 +718,7 @@ class Subscription(graphene.ObjectType):
                         if name == argument:
                             yield players[name].get()
 
-    async def resolve_team(root, info, name):
+    async def resolve_team(self, info, name):
         while True:
             message = await teams.queue.get()
             if message:
@@ -670,6 +728,14 @@ class Subscription(graphene.ObjectType):
                         if name == argument:
                             yield teams[name].get()
 
+    async def resolve_game(self, info):
+        while True:
+            message = await global_game_wrapper.queue.get()
+            if message:
+                if ':' in message:
+                    command, _, argument = message.partition(':')
+                    if command in ("add", "update", "delete"):
+                        yield global_game
 
 
 schema = graphene.Schema(query=Query, subscription=Subscription)
@@ -690,5 +756,9 @@ players = Items()
 
 # team name -> team
 teams = Items()
+
+global_game = Game()
+
+global_game_wrapper = GameWrapper(global_game)
 
 server_queue = asyncio.Queue()

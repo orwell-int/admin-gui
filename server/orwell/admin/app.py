@@ -24,6 +24,7 @@ from orwell.admin.schema import Team
 from orwell.admin.schema import robots
 from orwell.admin.schema import players
 from orwell.admin.schema import teams
+from orwell.admin.schema import global_game_wrapper as global_game
 from orwell.admin.template import render_graphiql
 
 
@@ -102,6 +103,12 @@ async def broadcast_proxy_robots(app):
         pass
 
 
+def decode_game(json_message):
+    global_game.time = json_message["time"]
+    global_game.running = json_message["running"]
+    global_game.duration = json_message["duration"]
+
+
 def decode_robots(json_message):
     mappings = {}
     for json_robot in json_message["Robots"]:
@@ -159,6 +166,14 @@ async def get_server_game_info(app):
                     except asyncio.QueueEmpty as ex:
                         print(ex, file=sys.stderr)
                     if zmq_req_socket:
+                        print("ServerGame zmq send 'json get game'")
+                        await zmq_req_socket.send_string("json get game")
+                        response = await asyncio.wait_for(
+                            zmq_req_socket.recv_unicode(), 1)
+                        print("ServerGame zmq received: ", response)
+                        json_response = json.loads(response)
+                        decode_game(json_response)
+
                         robot_to_player = {}
                         player_to_robot = {}
                         for item in ("robot", "player", "team"):
