@@ -109,33 +109,60 @@ def decode_game(json_message):
     global_game.duration = json_message["duration"]
 
 
+def update_items(items, new_items):
+    to_remove = []
+    for key in items.keys():
+        if key in new_items:
+            value = new_items[key]
+            items.add(value)
+            new_items.pop(key)
+        else:
+            to_remove.append(key)
+    for key, value in new_items.items():
+        items.add(value)
+    for key in to_remove:
+        del items[key]
+
+
 def decode_robots(json_message):
     mappings = {}
+    new_robots = {}
     for json_robot in json_message["Robots"]:
         robot = Robot()
         robot.name = json_robot["name"]
         robot.registered = json_robot["registered"]
         robot.video_url = json_robot["video_url"]
-        robots.add(robot)
+        new_robots[robot.name] = robot
         mappings[robot.name] = json_robot["player"]
+    update_items(robots, new_robots)
     return mappings
 
 
 def decode_players(json_message):
     mappings = {}
+    new_players = {}
     for json_player in json_message["Players"]:
         player = Player()
         player.name = json_player["name"]
-        players.add(player)
-        mappings[player.name] = json_player["robot"]
+        if "address" in json_player:
+            player.address = json_player["address"]
+        new_players[player.name] = player
+        if "robot" in json_player:
+            robot_name = json_player["robot"]
+            if robot_name:
+                # only if the player has a robot
+                mappings[player.name] = robot_name
+    update_items(players, new_players)
     return mappings
 
 
 def decode_teams(json_message):
+    new_teams = {}
     for team_name in json_message["Teams"]:
         team = Team()
         team.name = team_name
-        teams.add(team)
+        new_teams[team.name] = team
+    update_items(teams, new_teams)
 
 
 def decode_team(json_message, team):
@@ -186,7 +213,9 @@ async def get_server_game_info(app):
                             if "robot" == item:
                                 robot_to_player.update(decode_robots(json_response))
                             elif "player" == item:
-                                player_to_robot.update(decode_players(json_response))
+                                decoded = decode_players(json_response)
+                                if decoded:
+                                    player_to_robot.update(decoded)
                             elif "team" == item:
                                 decode_teams(json_response)
                         for player, robot in player_to_robot.items():
