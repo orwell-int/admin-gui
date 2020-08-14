@@ -263,6 +263,7 @@ class RobotWrapper(object):
 
 class Player(graphene.ObjectType):
     name = graphene.String()
+    address = graphene.String()
     robot = graphene.Field(Robot)
 
 
@@ -290,6 +291,16 @@ class PlayerWrapper(object):
         if self._player.name != value:
             self._player.name = value
             self._queue.put_nowait("update:" + self.name)
+
+    @property
+    def address(self):
+        return self._player.address
+
+    @address.setter
+    def address(self, value):
+        if self._player.address != value:
+            self._player.address = value
+            self._queue.put_nowait("update:" + self.address)
 
     @property
     def robot(self):
@@ -423,12 +434,12 @@ class Items(object):
         elif isinstance(item, Player):
             if item.name not in self._items:
                 self._items[item.name] = PlayerWrapper(item, self._queue)
-                print("Added a player")
+                print("Added a Player")
                 updated = True
         elif isinstance(item, Team):
             if item.name not in self._items:
                 self._items[item.name] = TeamWrapper(item, self._queue)
-                print("Added a team")
+                print("Added a Team")
                 updated = True
         else:
             raise TypeError(
@@ -458,8 +469,18 @@ class Items(object):
         return len(self._item)
 
     def __delitem__(self, name):
+        item = self._items[name]
         del self._items[name]
         self._queue.put_nowait("delete:" + name)
+        if isinstance(item, RobotWrapper):
+            print("Removed a RobotWrapper")
+        elif isinstance(item, PlayerWrapper):
+            print("Removed a PlayerWrapper")
+        elif isinstance(item, TeamWrapper):
+            print("Removed a TeamWrapper")
+        else:
+            raise TypeError(
+                "item should be either of type Robot or Player or Team")
 
     def keys(self):
         return self._items.keys()
@@ -650,18 +671,21 @@ class Subscription(graphene.ObjectType):
         yield computed_age
 
     async def resolve_server(self, info):
+        print("Subscription::resolve_server(" + str(info) + ")")
         while True:
             message = await server_game_wrapper.queue.get()
             if message:
                 yield server_game
 
     async def resolve_server_game(self, info):
+        print("Subscription::resolve_server_game(" + str(info) + ")")
         while True:
             message = await server_game_wrapper.queue.get()
             if message:
                 yield server_game
 
     async def resolve_proxy_robots(self, info):
+        print("Subscription::resolve_proxy_robots(" + str(info) + ")")
         while True:
             message = await proxy_robots_wrapper.queue.get()
             if message:
@@ -671,16 +695,14 @@ class Subscription(graphene.ObjectType):
         print("Subscription::resolve_robots(" + str(info) + ")")
         while True:
             message = await robots.queue.get()
-            print("Robots ->", message)
             if message:
                 if ':' in message:
                     command, _, argument = message.partition(':')
-                    print(" command='%s' argument='%s'".format(command, argument))
                     if command in ("add", "update", "delete"):
-                        print(" robots.values() =", robots.values())
                         yield robots.values()
 
     async def resolve_players(self, info):
+        print("Subscription::resolve_players(" + str(info) + ")")
         while True:
             message = await players.queue.get()
             if message:
@@ -690,6 +712,7 @@ class Subscription(graphene.ObjectType):
                         yield players.values()
 
     async def resolve_teams(self, info):
+        print("Subscription::resolve_teams(" + str(info) + ")")
         while True:
             message = await teams.queue.get()
             if message:
@@ -699,6 +722,7 @@ class Subscription(graphene.ObjectType):
                         yield teams.values()
 
     async def resolve_robot(self, info, name):
+        print("Subscription::resolve_robot(" + str(info) + ", " + repr(name) + ")")
         while True:
             message = await robots.queue.get()
             if message:
@@ -709,6 +733,7 @@ class Subscription(graphene.ObjectType):
                             yield robots[name].get()
 
     async def resolve_player(self, info, name):
+        print("Subscription::resolve_player(" + str(info) + ", " + repr(name) + ")")
         while True:
             message = await players.queue.get()
             if message:
@@ -719,6 +744,7 @@ class Subscription(graphene.ObjectType):
                             yield players[name].get()
 
     async def resolve_team(self, info, name):
+        print("Subscription::resolve_team(" + str(info) + ", " + repr(name) + ")")
         while True:
             message = await teams.queue.get()
             if message:
