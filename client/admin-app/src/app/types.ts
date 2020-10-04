@@ -29,6 +29,7 @@ export type Robot = {
   registered: boolean;
   player: {
     name: string;
+    address: string;
   };
 };
 

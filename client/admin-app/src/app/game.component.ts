@@ -57,8 +57,8 @@ import {
               <td>{{ robot.name }}</td>
               <td></td>
               <td></td>
-              <td>{{ robot.player.name }}</td>
-              <td></td>
+              <td>{{ robot.player?.name }}</td>
+              <td>{{ robot.player?.address }}</td>
             </tr>
           </tbody>
         </table>
@@ -164,6 +164,7 @@ export class GameComponent implements OnInit {
               name
               player {
                 name
+                address
               }
             }
           }
@@ -212,6 +213,7 @@ export class RobotsSubscription extends Subscription<RobotsQuery> {
         name
         player {
           name
+          address
         }
       }
     }
