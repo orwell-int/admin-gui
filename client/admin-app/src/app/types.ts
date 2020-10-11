@@ -26,12 +26,19 @@ export type GameQuery = {
 
 export type Robot = {
   name: string;
+  status: RobotStatus;
   registered: boolean;
   player: {
     name: string;
     address: string;
   };
 };
+
+export enum RobotStatus {
+  Ok = 1,
+  Warning,
+  Ko
+}
 
 export type RobotsQuery = {
   robots: Robot[];

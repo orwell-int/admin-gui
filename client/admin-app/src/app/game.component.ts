@@ -11,7 +11,8 @@ import {
   RobotsQuery,
   Robot,
   GameQuery,
-  Game
+  Game,
+  RobotStatus
 } from "./types";
 
 @Component({
@@ -53,10 +54,12 @@ import {
           </thead>
           <tbody>
             <tr *ngFor="let robot of robots">
-              <td></td>
+              <td style="text-align:center">
+                {{ robot.status == 1 ? "🟢" : robot.status == 2 ? "🟡" : "🔴" }}
+              </td>
               <td>{{ robot.name }}</td>
               <td></td>
-              <td></td>
+              <td>Tank</td>
               <td>{{ robot.player?.name }}</td>
               <td>{{ robot.player?.address }}</td>
             </tr>
@@ -105,6 +108,18 @@ export class GameComponent implements OnInit {
     this.robotsSubscription.subscribe(result => {
       if (result.data) {
         this.robots = result.data.robots;
+        this.robots.forEach(robot => {
+          if (
+            robot.name != null &&
+            robot.player != null &&
+            robot.player.name != null &&
+            robot.player.address != null
+          ) {
+            robot.status = RobotStatus.Ok;
+          } else {
+            robot.status = RobotStatus.Warning;
+          }
+        });
       }
     });
   }
@@ -174,6 +189,18 @@ export class GameComponent implements OnInit {
         if (result.data) {
           if (result.data) {
             this.robots = result.data.robots;
+            this.robots.forEach(robot => {
+              if (
+                robot.name != null &&
+                robot.player != null &&
+                robot.player.name != null &&
+                robot.player.address != null
+              ) {
+                robot.status = RobotStatus.Ok;
+              } else {
+                robot.status = RobotStatus.Warning;
+              }
+            });
           }
         }
       });
