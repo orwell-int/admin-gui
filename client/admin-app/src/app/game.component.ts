@@ -18,18 +18,24 @@ import {
 @Component({
   selector: "app-game",
   template: `
-    <div class="card" style="width: 700px;">
+    <div class="card">
       <div class="card-divider">
         Game
       </div>
       <div class="card-section">
-        <h4 *ngIf="game?.running; else notRunning">
-          Time Left: {{ game.time }}/{{ game.duration }}
-        </h4>
-        <ng-template #notRunning>
-          <h4>Game is not running</h4>
-        </ng-template>
-        <div class="card" style="width: 300px;" *ngFor="let team of teams">
+        <div class="cell">
+          <h4 *ngIf="game?.running; else notRunning">
+            Time Left: {{ game.time }}/{{ game.duration }}
+          </h4>
+          <ng-template #notRunning>
+            <h4>Game is not running</h4>
+          </ng-template>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="grid-x grid-margin-x">
+        <div class="card cell medium-auto" *ngFor="let team of teams">
           <div class="card-divider">
             {{ team.name }}
           </div>

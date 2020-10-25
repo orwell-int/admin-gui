@@ -57,6 +57,6 @@ export type Teams = {
 };
 
 export enum ConnectionStatus {
-  Online = "Online",
-  Offline = "Offline"
+  Online = "🟩",
+  Offline = "❌ Offline"
 }

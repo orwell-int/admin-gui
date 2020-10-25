@@ -11,13 +11,12 @@ import { Utils } from "./utils";
 @Component({
   selector: "app-proxy-robots",
   template: `
-    <div class="card" style="width: 300px;">
+    <div class="card">
       <div class="card-divider">
         {{ name }}
       </div>
       <div class="card-section">
-        <h4>{{ status }}</h4>
-        <p>{{ address }}</p>
+        <h4>{{ status }} {{ address }}</h4>
       </div>
     </div>
   `
