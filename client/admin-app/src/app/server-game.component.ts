@@ -11,7 +11,7 @@ import { Utils } from "./utils";
 @Component({
   selector: "app-server-game",
   template: `
-    <div class="card">
+    <div class="card" id="ServerGame">
       <div class="card-divider">
         {{ name }}
       </div>

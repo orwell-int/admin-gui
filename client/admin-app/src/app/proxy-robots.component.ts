@@ -11,7 +11,7 @@ import { Utils } from "./utils";
 @Component({
   selector: "app-proxy-robots",
   template: `
-    <div class="card">
+    <div class="card" id="ProxyRobots">
       <div class="card-divider">
         {{ name }}
       </div>

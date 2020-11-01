@@ -19,7 +19,7 @@ import {
   selector: "app-game",
   template: `
     <div class="card">
-      <div class="card-divider">
+      <div class="card-divider" id="Game">
         Game
       </div>
       <div class="card-section">
@@ -45,8 +45,8 @@ import {
           </div>
         </div>
       </div>
-      <div class="card-section">
-        <h4>Robots</h4>
+      <div class="card">
+        <div class="card-divider" id="Robots">Robots</div>
         <table>
           <thead>
             <tr>
