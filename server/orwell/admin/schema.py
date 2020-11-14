@@ -1,8 +1,12 @@
 import random
 import asyncio
+import collections
+import logging
+
 import graphene
 
-import collections
+
+LOGGER = logging.getLogger(__name__)
 
 
 class Server(graphene.ObjectType):
@@ -81,7 +85,7 @@ class ObjectTypeDelayed(graphene.ObjectType):
     """
     Ugly way of simulating resolveThunk to avoid circular dependencies.
 
-    You need to implement as static method named get_delayed_fields to
+    You need to implement a static method named get_delayed_fields to
     return a dictionary with the additional fields needed.
 
       @staticmethod
@@ -180,9 +184,12 @@ class ObjectTypeDelayed(graphene.ObjectType):
 
 
 class Robot(ObjectTypeDelayed):
+    id = graphene.String()
     name = graphene.String()
     registered = graphene.Boolean()
     video_url = graphene.String()
+    address = graphene.String()
+    description = graphene.String()
     # (Robot <--> Player)
 
     @staticmethod
@@ -201,6 +208,16 @@ class RobotWrapper(object):
     @property
     def queue(self):
         return self._queue
+
+    @property
+    def id(self):
+        return self._robot.id
+
+    @id.setter
+    def id(self, value):
+        if self._robot.id != value:
+            self._robot.id = value
+            self._queue.put_nowait("update:" + self.id)
 
     @property
     def name(self):
@@ -256,6 +273,29 @@ class RobotWrapper(object):
             self._queue.put_nowait("update:" + self.name)
         else:
             print(" !! invalid player", player)
+
+    @property
+    def address(self):
+        return self._robot.address
+
+    @address.setter
+    def address(self, value):
+        if self._robot.address != value:
+            self._robot.address = value
+            LOGGER.debug("Robot address triggers update")
+            self._queue.put_nowait("update:" + self.name)
+        else:
+            LOGGER.debug("Robot address does NOT triggers update")
+
+    @property
+    def description(self):
+        return self._robot.description
+
+    @description.setter
+    def description(self, value):
+        if self._robot.description != value:
+            self._robot.description = value
+            self._queue.put_nowait("update:" + self.name)
 
     def get(self):
         return self._robot
@@ -454,6 +494,12 @@ class Items(object):
             self._queue.put_nowait("delete:")
 
     def __setitem__(self, name, item):
+        if isinstance(item, Robot):
+            raise TypeError("Unexpected Robot")
+        elif isinstance(item, Player):
+            raise TypeError("Unexpected Player")
+        elif isinstance(item, Team):
+            raise TypeError("Unexpected Team")
         if name != item.name:
             raise ValueError(
                 "The name '%s' of the item does not match "
@@ -466,21 +512,12 @@ class Items(object):
         return item
 
     def __len__(self):
-        return len(self._item)
+        return len(self._items)
 
     def __delitem__(self, name):
         item = self._items[name]
         del self._items[name]
         self._queue.put_nowait("delete:" + name)
-        if isinstance(item, RobotWrapper):
-            print("Removed a RobotWrapper")
-        elif isinstance(item, PlayerWrapper):
-            print("Removed a PlayerWrapper")
-        elif isinstance(item, TeamWrapper):
-            print("Removed a TeamWrapper")
-        else:
-            raise TypeError(
-                "item should be either of type Robot or Player or Team")
 
     def keys(self):
         return self._items.keys()
@@ -489,7 +526,11 @@ class Items(object):
         return name in self._items
 
     def values(self):
-        return [item.get() for item in self._items.values()]
+        return self._items.values()
+
+    def raw_values(self):
+        items = [item.get() for item in self._items.values()]
+        return items
 
 #    def items(self):
 #        return self._items.items()
@@ -497,8 +538,8 @@ class Items(object):
     def __contains__(self, item):
         return item in self._items
 
-#    def __iter__(self):
-#        return iter(self._items)
+    def __iter__(self):
+        return iter(self._items.keys())
 
 
 class Game(graphene.ObjectType):
@@ -584,15 +625,15 @@ class Query(graphene.ObjectType):
 
     def resolve_robots(self, info):
         print("resolve_robots(" + str(info) + ")")
-        return robots.values()
+        return robots.raw_values()
 
     def resolve_players(self, info):
         print("resolve_players(" + str(info) + ")")
-        return players.values()
+        return players.raw_values()
 
     def resolve_teams(self, info):
         print("resolve_teams(" + str(info) + ")")
-        return teams.values()
+        return teams.raw_values()
 
     def resolve_robot(self, info, name):
         print("resolve_robot(" + str(info) + ")")
@@ -698,8 +739,9 @@ class Subscription(graphene.ObjectType):
             if message:
                 if ':' in message:
                     command, _, argument = message.partition(':')
+                    LOGGER.debug("resolve_robots with command='%s'", command)
                     if command in ("add", "update", "delete"):
-                        yield robots.values()
+                        yield robots.raw_values()
 
     async def resolve_players(self, info):
         print("Subscription::resolve_players(" + str(info) + ")")
@@ -709,7 +751,7 @@ class Subscription(graphene.ObjectType):
                 if ':' in message:
                     command, _, argument = message.partition(':')
                     if command in ("add", "update", "delete"):
-                        yield players.values()
+                        yield players.raw_values()
 
     async def resolve_teams(self, info):
         print("Subscription::resolve_teams(" + str(info) + ")")
@@ -719,7 +761,7 @@ class Subscription(graphene.ObjectType):
                 if ':' in message:
                     command, _, argument = message.partition(':')
                     if command in ("add", "update", "delete"):
-                        yield teams.values()
+                        yield teams.raw_values()
 
     async def resolve_robot(self, info, name):
         print("Subscription::resolve_robot(" + str(info) + ", " + repr(name) + ")")

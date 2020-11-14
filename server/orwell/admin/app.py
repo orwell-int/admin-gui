@@ -1,5 +1,7 @@
 import json
 import sys
+import traceback
+import logging
 
 from aiohttp import web
 import asyncio
@@ -12,7 +14,7 @@ from graphql_ws.aiohttp import AiohttpSubscriptionServer
 from orwell_common.broadcast import AsyncBroadcast
 from orwell_common.broadcast import ServerGameDecoder
 from orwell_common.broadcast import ProxyRobotsDecoder
-import orwell_common.broadcast
+import orwell_common.logging
 
 from orwell.admin.schema import schema
 from orwell.admin.schema import increase_age
@@ -27,6 +29,10 @@ from orwell.admin.schema import teams
 from orwell.admin.schema import global_game_wrapper as global_game
 from orwell.admin.template import render_graphiql
 
+proxy_robots_robots = None
+
+LOGGER = logging.getLogger("orwell")
+
 
 async def graphql_view(request):
     payload = await request.json()
@@ -36,12 +42,13 @@ async def graphql_view(request):
         data['errors'] = [format_error(e) for e in response.errors]
     if response.data:
         data['data'] = response.data
-    jsondata = json.dumps(data,)
+    jsondata = json.dumps(data, )
     return web.Response(text=jsondata, headers={'Content-Type': 'application/json'})
 
 
 async def graphiql_view(request):
     return web.Response(text=render_graphiql(), headers={'Content-Type': 'text/html'})
+
 
 subscription_server = AiohttpSubscriptionServer(schema)
 
@@ -129,9 +136,14 @@ def decode_robots(json_message):
     new_robots = {}
     for json_robot in json_message["Robots"]:
         robot = Robot()
+        if "id" in json_robot:
+            robot.id = json_robot["id"]
+            if proxy_robots_robots and robot.id in proxy_robots_robots:
+                robot.address = proxy_robots_robots[robot.id]["address"]
         robot.name = json_robot["name"]
         robot.registered = json_robot["registered"]
         robot.video_url = json_robot["video_url"]
+        robot.description = "Tank"  # HARDCODED
         new_robots[robot.name] = robot
         mappings[robot.name] = json_robot["player"]
     update_items(robots, new_robots)
@@ -173,6 +185,21 @@ def decode_team(json_message, team):
         return
     team.score = json_team["score"]
     team.robots = json_team["robots"]
+
+
+def clean_server_game():
+    server_game.up = False
+    robots.clear()
+    players.clear()
+    teams.clear()
+
+
+def clean_proxy_robots():
+    proxy_robots.up = False
+    global proxy_robots_robots
+    proxy_robots_robots = None
+    for robot in robots.values():
+        robot.address = ""
 
 
 async def get_server_game_info(app):
@@ -218,13 +245,13 @@ async def get_server_game_info(app):
                                     player_to_robot.update(decoded)
                             elif "team" == item:
                                 decode_teams(json_response)
-                        for player, robot in player_to_robot.items():
-                            if player != robot_to_player[robot]:
-                                print("Corrupted links!", robot, player)
+                        for player_name, robot_name in player_to_robot.items():
+                            if player_name != robot_to_player[robot_name]:
+                                print("Corrupted links!", robot_name, player_name)
                                 print("robot_to_player =", robot_to_player)
                                 print("player_to_robot =", player_to_robot)
                                 continue
-                            robots[robot].player = player
+                            robots[robot_name].player = player_name
                         for team_name in teams.keys():
                             team = teams[team_name]
                             print("team_name =", team_name, "; team =", team)
@@ -238,25 +265,20 @@ async def get_server_game_info(app):
                             decode_team(json_response, team)
                 except zmq.ZMQError as zex:
                     print("ServerGame ZMQ error: ", zex, file=sys.stderr)
-                    server_game.up = False
-                    robots.clear()
-                    players.clear()
-                    teams.clear()
+                    clean_server_game()
                 except asyncio.TimeoutError as tex:
                     print("ServerGame Timeout while trying "
                           "to receive ZMQ response. ",
                           tex, file=sys.stderr)
-                    server_game.up = False
-                    robots.clear()
-                    players.clear()
-                    teams.clear()
+                    clean_server_game()
             if idle:
                 await asyncio.sleep(2.2)
     except asyncio.CancelledError:
         pass
 
 
-async def get_proxy_robots_info(app):
+async def raw_get_proxy_robots_info(app):
+    global proxy_robots_robots
     try:
         zmq_req_socket = None
         while True:
@@ -269,29 +291,49 @@ async def get_proxy_robots_info(app):
                             zmq_req_socket = zmq.asyncio.Socket(
                                 app["context"], zmq.REQ)
                             zmq_req_socket.setsockopt(zmq.LINGER, 1)
-                            print("ProxyRobots zmq connect to %s", agent_address)
+                            print("ProxyRobots zmq connect to ", agent_address)
                             zmq_req_socket.connect(agent_address)
                     except asyncio.QueueEmpty as ex:
                         print(ex, file=sys.stderr)
                     if zmq_req_socket:
                         for item in ("robot",):
-                            print("ProxyRobots zmq send 'list %s'" % item)
-                            await zmq_req_socket.send_string("list %s" % item)
+                            command = "json list %s" % item
+                            LOGGER.info("ProxyRobots zmq send '%s'", command)
+                            await zmq_req_socket.send_string(command)
                             response = await asyncio.wait_for(
                                 zmq_req_socket.recv_unicode(), 1)
-                            print("ProxyRobots zmq received: ", response)
+                            LOGGER.info("ProxyRobots zmq received: %s", response)
+                            robots_dict = json.loads(response)
+                            LOGGER.debug("robots: %s", robots)
+                            for robot in robots.values():
+                                if robot.id and robot.id in robots_dict:
+                                    json_robot = robots_dict[robot.id]
+                                    robot.address = json_robot["address"]
+                            proxy_robots_robots = robots_dict
                 except zmq.ZMQError as zex:
                     print("ProxyRobots ZMQ error: ", zex, file=sys.stderr)
-                    proxy_robots.up = False
+                    clean_proxy_robots()
                 except asyncio.TimeoutError as tex:
-                    print("ProxyRobots Timeout while trying "
-                          "to receive ZMQ response. ",
-                          tex, file=sys.stderr)
-                    proxy_robots.up = False
+                    LOGGER.error(
+                        "ProxyRobots Timeout while trying "
+                        "to receive ZMQ response. %s",
+                        tex)
+                    traceback.print_exc()
+                    clean_proxy_robots()
             if idle:
                 await asyncio.sleep(2.2)
     except asyncio.CancelledError:
         pass
+
+
+async def get_proxy_robots_info(app):
+    try:
+        await raw_get_proxy_robots_info(app)
+    except Exception as uex:
+        print("Unexpected exception in get_proxy_robots_info")
+        traceback.print_exc()
+        raise uex
+
 
 APP_NAMES = "names"
 APP_CONTEXT = "context"
@@ -319,15 +361,20 @@ async def stop_callbacks(app):
         await app[name]
 
 
-print("Route /subscriptions")
-print("Route /graphiql")
-print("Route /graphql")
-orwell_common.broadcast.configure_logging(False)
-app = web.Application()
-app.router.add_get('/subscriptions', subscriptions)
-app.router.add_get('/graphiql', graphiql_view)
-app.router.add_get('/graphql', graphql_view)
-app.router.add_post('/graphql', graphql_view)
-app.on_startup.append(start_callbacks)
-app.on_shutdown.append(stop_callbacks)
-web.run_app(app, port=8000)
+def main():
+    print("Route /subscriptions")
+    print("Route /graphiql")
+    print("Route /graphql")
+    orwell_common.logging.configure_logging(False)
+    app = web.Application()
+    app.router.add_get('/subscriptions', subscriptions)
+    app.router.add_get('/graphiql', graphiql_view)
+    app.router.add_get('/graphql', graphql_view)
+    app.router.add_post('/graphql', graphql_view)
+    app.on_startup.append(start_callbacks)
+    app.on_shutdown.append(stop_callbacks)
+    web.run_app(app, port=8000)
+
+
+if '__main__' == __name__:
+    main()
