@@ -2,6 +2,7 @@ import random
 import asyncio
 import collections
 import logging
+import queue
 
 import graphene
 
@@ -903,7 +904,43 @@ class Subscription(graphene.ObjectType):
                         yield global_game
 
 
-schema = graphene.Schema(query=Query, subscription=Subscription)
+global game_queue
+game_queue = queue.Queue()
+
+
+class StartGame(graphene.Mutation):
+    class Arguments:
+        pass
+
+    ok = graphene.Boolean()
+
+    def mutate(root, info):
+        LOGGER.info("game_queue put start")
+        game_queue.put("start")
+        ok = True
+        return StartGame(ok=ok)
+
+
+class StopGame(graphene.Mutation):
+    class Arguments:
+        pass
+
+    ok = graphene.Boolean()
+
+    def mutate(root, info):
+        LOGGER.info("game_queue put stop")
+        game_queue.put("stop")
+        ok = True
+        return StopGame(ok=ok)
+
+
+class Mutation(graphene.ObjectType):
+    start_game = StartGame.Field()
+    stop_game = StopGame.Field()
+
+
+schema = graphene.Schema(
+    query=Query, subscription=Subscription, mutation=Mutation)
 
 server_game = Server(name="ServerGame", up=False, address="")
 
