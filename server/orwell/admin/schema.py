@@ -352,7 +352,7 @@ class PlayerWrapper(object):
         if isinstance(value, str):
             if value in robots:
                 robot = robots[value]
-        elif isinstance(value, Player):
+        elif isinstance(value, Robot):
             robot = value
         if robot:
             if self._player.robot != robot:
@@ -455,6 +455,80 @@ class TeamWrapper(object):
             self._queue.put_nowait("update:" + self.name)
 
 
+class Flag(graphene.ObjectType):
+    name = graphene.String()
+    colour = graphene.Int()
+    rfid = graphene.List(graphene.NonNull(graphene.String))
+    team = graphene.Field(Team)
+
+
+class FlagWrapper(object):
+    def __init__(self, flag, queue=None):
+        self._flag = flag
+        if queue:
+            self._queue = queue
+        else:
+            self._queue = asyncio.Queue()
+        self.rfid = flag.rfid
+        self.team = flag.team
+
+    @property
+    def queue(self):
+        return self._queue
+
+    @property
+    def name(self):
+        return self._flag.name
+
+    @name.setter
+    def name(self, value):
+        if self._flag.name != value:
+            self._flag.name = value
+            self._queue.put_nowait("update:" + self.name)
+
+    def get(self):
+        return self._flag
+
+    @property
+    def colour(self):
+        return self._flag.colour
+
+    @colour.setter
+    def colour(self, value):
+        if self._flag.colour != value:
+            self._flag.colour = value
+            self._queue.put_nowait("update:" + self.name)
+
+    @property
+    def rfid(self):
+        return self._flag.rfid
+
+    @rfid.setter
+    def rfid(self, rfid):
+        print("Set rfid from:", rfid)
+        old_rfid = set(self._flag.rfid if self._flag.rfid else [])
+        new_rfid = set(rfid if rfid else [])
+        if old_rfid != new_rfid:
+            self._flag.rfid = rfid
+            self._queue.put_nowait("update:" + self.name)
+
+    @property
+    def team(self):
+        return self._flag.team
+
+    @team.setter
+    def team(self, value):
+        team = None
+        if isinstance(value, str):
+            if value in teams:
+                team = teams[value]
+        elif isinstance(value, Team):
+            team = value
+        if self._flag.team != team:
+            self._flag.team = team
+        self._queue.put_nowait("update:" + self.name)
+
+
 class Items(object):
     def __init__(self):
         self._queue = asyncio.Queue()
@@ -481,6 +555,11 @@ class Items(object):
                 self._items[item.name] = TeamWrapper(item, self._queue)
                 print("Added a Team")
                 updated = True
+        elif isinstance(item, Flag):
+            if item.name not in self._items:
+                self._items[item.name] = FlagWrapper(item, self._queue)
+                print("Added a Flag")
+                updated = True
         else:
             raise TypeError(
                 "item should be either of type Robot or Player or Team")
@@ -500,6 +579,8 @@ class Items(object):
             raise TypeError("Unexpected Player")
         elif isinstance(item, Team):
             raise TypeError("Unexpected Team")
+        elif isinstance(item, Flag):
+            raise TypeError("Unexpected Flag")
         if name != item.name:
             raise ValueError(
                 "The name '%s' of the item does not match "
@@ -601,6 +682,7 @@ class Query(graphene.ObjectType):
     robots = graphene.List(graphene.NonNull(Robot))
     players = graphene.List(graphene.NonNull(Player))
     teams = graphene.List(graphene.NonNull(Team))
+    flags = graphene.List(graphene.NonNull(Flag))
     robot = graphene.Field(Robot, name=graphene.String(required=True))
     player = graphene.Field(Player, name=graphene.String(required=True))
     team = graphene.Field(Team, name=graphene.String(required=True))
@@ -634,6 +716,10 @@ class Query(graphene.ObjectType):
     def resolve_teams(self, info):
         print("resolve_teams(" + str(info) + ")")
         return teams.raw_values()
+
+    def resolve_flags(self, info):
+        print("resolve_flags(" + str(info) + ")")
+        return flags.raw_values()
 
     def resolve_robot(self, info, name):
         print("resolve_robot(" + str(info) + ")")
@@ -689,6 +775,7 @@ class Subscription(graphene.ObjectType):
     robots = graphene.List(graphene.NonNull(Robot))
     players = graphene.List(graphene.NonNull(Player))
     teams = graphene.List(graphene.NonNull(Team))
+    flags = graphene.List(graphene.NonNull(Flag))
     robot = graphene.Field(Robot, name=graphene.String(required=True))
     player = graphene.Field(Player, name=graphene.String(required=True))
     team = graphene.Field(Team, name=graphene.String(required=True))
@@ -763,6 +850,16 @@ class Subscription(graphene.ObjectType):
                     if command in ("add", "update", "delete"):
                         yield teams.raw_values()
 
+    async def resolve_flags(self, info):
+        print("Subscription::resolve_flags(" + str(info) + ")")
+        while True:
+            message = await flags.queue.get()
+            if message:
+                if ':' in message:
+                    command, _, argument = message.partition(':')
+                    if command in ("add", "update", "delete"):
+                        yield flags.raw_values()
+
     async def resolve_robot(self, info, name):
         print("Subscription::resolve_robot(" + str(info) + ", " + repr(name) + ")")
         while True:
@@ -824,6 +921,9 @@ players = Items()
 
 # team name -> team
 teams = Items()
+
+# flag name -> flag
+flags = Items()
 
 global_game = Game()
 

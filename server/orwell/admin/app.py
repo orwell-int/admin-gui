@@ -23,9 +23,11 @@ from orwell.admin.schema import proxy_robots_wrapper as proxy_robots
 from orwell.admin.schema import Robot
 from orwell.admin.schema import Player
 from orwell.admin.schema import Team
+from orwell.admin.schema import Flag
 from orwell.admin.schema import robots
 from orwell.admin.schema import players
 from orwell.admin.schema import teams
+from orwell.admin.schema import flags
 from orwell.admin.schema import global_game_wrapper as global_game
 from orwell.admin.template import render_graphiql
 
@@ -177,6 +179,24 @@ def decode_teams(json_message):
     update_items(teams, new_teams)
 
 
+def decode_flags(json_message):
+    new_flags = {}
+    for json_flag in json_message["Flags"]:
+        flag = Flag()
+        if "name" in json_flag:
+            flag.name = json_flag["name"]
+        if "RFID" in json_flag:
+            LOGGER.info("RFID:%s", json_flag["RFID"])
+            flag.rfid = json_flag["RFID"]
+        if "colour" in json_flag:
+            flag.colour = json_flag["colour"]
+        if "team" in json_flag:
+            LOGGER.debug("team:%s", json_flag["team"])
+            flag.team = json_flag["team"]
+        new_flags[flag.name] = flag
+    update_items(flags, new_flags)
+
+
 def decode_team(json_message, team):
     json_team = json_message["Team"]
     if team.name != json_team["name"]:
@@ -192,6 +212,7 @@ def clean_server_game():
     robots.clear()
     players.clear()
     teams.clear()
+    flags.clear()
 
 
 def clean_proxy_robots():
@@ -230,7 +251,7 @@ async def get_server_game_info(app):
 
                         robot_to_player = {}
                         player_to_robot = {}
-                        for item in ("robot", "player", "team"):
+                        for item in ("robot", "player", "team", "flag"):
                             print("ServerGame zmq send 'json list %s'" % item)
                             await zmq_req_socket.send_string("json list %s" % item)
                             response = await asyncio.wait_for(
@@ -245,6 +266,8 @@ async def get_server_game_info(app):
                                     player_to_robot.update(decoded)
                             elif "team" == item:
                                 decode_teams(json_response)
+                            elif "flag" == item:
+                                decode_flags(json_response)
                         for player_name, robot_name in player_to_robot.items():
                             if player_name != robot_to_player[robot_name]:
                                 print("Corrupted links!", robot_name, player_name)
