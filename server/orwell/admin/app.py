@@ -28,6 +28,7 @@ from orwell.admin.schema import robots
 from orwell.admin.schema import players
 from orwell.admin.schema import teams
 from orwell.admin.schema import flags
+from orwell.admin.schema import game_queue
 from orwell.admin.schema import global_game_wrapper as global_game
 from orwell.admin.template import render_graphiql
 
@@ -223,7 +224,7 @@ def clean_proxy_robots():
         robot.address = ""
 
 
-async def get_server_game_info(app):
+async def interact_with_server_game(app):
     try:
         zmq_req_socket = None
         while True:
@@ -241,6 +242,15 @@ async def get_server_game_info(app):
                     except asyncio.QueueEmpty as ex:
                         print(ex, file=sys.stderr)
                     if zmq_req_socket:
+                        if not game_queue.empty():
+                            command = game_queue.get() + " game"
+                            game_queue.task_done()
+                            LOGGER.info("ServerGame zmq send '%s'" % command)
+                            await zmq_req_socket.send_string(command)
+                            response = await asyncio.wait_for(
+                                zmq_req_socket.recv_unicode(), 1)
+                            print("ServerGame zmq received: ", response)
+
                         print("ServerGame zmq send 'json get game'")
                         await zmq_req_socket.send_string("json get game")
                         response = await asyncio.wait_for(
@@ -373,7 +383,7 @@ async def start_callbacks(app):
     add_task(app, counter, "counter")
     add_task(app, broadcast_server_game, "broadcast_server_game")
     add_task(app, broadcast_proxy_robots, "broadcast_proxy_robots")
-    add_task(app, get_server_game_info, "get_server_game_info")
+    add_task(app, interact_with_server_game, "interact_with_server_game")
     add_task(app, get_proxy_robots_info, "get_proxy_robots_info")
 
 
