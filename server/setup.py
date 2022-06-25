@@ -9,7 +9,7 @@ setuptools.setup(name='orwell::admin',
       url='https://github.com/orwell-int/messages',
       packages=['orwell', 'orwell.admin'],
       install_requires=[
-            "aiohttp==3.6.2",
+            "aiohttp==3.8.1",
             "aniso8601==7.0.0",
             "async-timeout==3.0.1",
             "attrs==19.2.0",
